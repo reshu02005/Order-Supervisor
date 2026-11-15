@@ -1,4 +1,4 @@
-# Order Pilot
+# Order Supervisor
 
 A workspace that watches an existing order from creation to delivery or cancellation. One Temporal workflow remembers each order, receives updates, wakes an assistant when useful, and waits between checks.
 
