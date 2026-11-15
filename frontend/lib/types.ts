@@ -1,0 +1,11 @@
+export type Order={order_id:string;customer_name:string;item:string;amount_minor:number;currency:string};
+export type Config={id:string;name:string;base_instruction:string;tools:string[];wake_seconds:number;mode:string};
+export type Action={tool:string;text:string;status:string;receipt_id:string;at:string};
+export type Run={id:string;workflow_id:string;order:Order;config:Config;order_status:string;execution_status:string;agent_state:string;next_wake_at:string|null;memory:string;updated_at:string;created_at:string;decision_count:number;latest_decision:string;needs_review:boolean;actions:Action[];instructions:{text:string}[];events:unknown[];timeline:{at:string;kind:string;text:string}[];final_report:null|{summary:string;completeness:string;important_actions:string[];key_learnings:string[];recommendations:string[];unresolved_issues:string[]}};
+export const tools=['send_customer_message','create_internal_note','escalate_issue','mark_order_for_review'];
+export const events=['payment_confirmed','shipment_created','shipment_delayed','customer_message_received','payment_failed','refund_requested','delivered','order_cancelled'];
+export const pretty=(x:string)=>x.replaceAll('_',' ');
+export const ended=(r:Run)=>['completed','terminated','failed'].includes(r.execution_status);
+export const time=(s:string|null)=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
+export const date=(s:string)=>new Date(s).toLocaleDateString([],{day:'numeric',month:'short'});
+export const money=(o:Order)=>new Intl.NumberFormat(undefined,{style:'currency',currency:o.currency}).format(o.amount_minor/100);

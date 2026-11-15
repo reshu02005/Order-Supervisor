@@ -1,0 +1,51 @@
+name: order-supervisor
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: supervisor
+      POSTGRES_PASSWORD: supervisor
+      POSTGRES_DB: supervisor
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supervisor"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  temporal:
+    user: "0:0"
+    image: temporalio/temporal:1.10.1
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db"]
+    volumes: ["temporal-data:/data"]
+    ports: ["127.0.0.1:8233:8233"]
+  api:
+    build: ./backend
+    environment: &backend-env
+      DATABASE_URL: postgresql://supervisor:supervisor@db:5432/supervisor
+      TEMPORAL_ADDRESS: temporal:7233
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+    depends_on:
+      db: {condition: service_healthy}
+      temporal: {condition: service_started}
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment: *backend-env
+    depends_on:
+      api: {condition: service_healthy}
+  web:
+    build: ./frontend
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      api: {condition: service_healthy}
+volumes:
+  postgres-data:
+  temporal-data:

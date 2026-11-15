@@ -1,0 +1,4 @@
+[
+  {"order_id":"DEMO-1001","customer_name":"Sample Customer","item":"Everyday backpack","amount_minor":249900,"currency":"INR"},
+  {"order_id":"DEMO-1002","customer_name":"Demo Shopper","item":"Desk lamp","amount_minor":189900,"currency":"INR"}
+]

@@ -1,0 +1,21 @@
+'use client';
+import Link from 'next/link';
+import {usePathname} from 'next/navigation';
+import {createContext,useContext,useEffect,useState,useCallback,useRef} from 'react';
+import {request} from '../lib/api';
+import {Run,Config,Order} from '../lib/types';
+import {Icon} from './icons';
+type Data={runs:Run[];configs:Config[];samples:Order[];loading:boolean;error:string;busy:boolean;notice:string;refresh:()=>Promise<void>;act:(fn:()=>Promise<unknown>,message:string)=>Promise<boolean>};
+const Context=createContext<Data|null>(null);
+export function useWorkspace(){const x=useContext(Context);if(!x)throw Error('Workspace provider required');return x;}
+export default function Workspace({children}:{children:React.ReactNode}){
+ const path=usePathname();const [runs,setRuns]=useState<Run[]>([]),[configs,setConfigs]=useState<Config[]>([]),[samples,setSamples]=useState<Order[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ const active=useRef(true);
+ const refresh=useCallback(async()=>{const [r,c,o]=await Promise.all([request<Run[]>('/api/runs'),request<Config[]>('/api/supervisors'),request<Order[]>('/api/samples')]);if(active.current){setRuns(r);setConfigs(c);setSamples(o);setLoading(false);}},[]);
+ useEffect(()=>{active.current=true;let running=false;const tick=async()=>{if(running)return;running=true;try{await refresh()}catch(e){if(active.current){setError(e instanceof Error?e.message:'Unable to reach server');setLoading(false)}}finally{running=false}};tick();const timer=setInterval(tick,2000);return()=>{active.current=false;clearInterval(timer)}},[refresh]);
+ useEffect(()=>{setNotice('');setError('')},[path]);
+ useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),6500);return()=>clearTimeout(timer)},[notice]);
+ async function act(fn:()=>Promise<unknown>,message:string){setBusy(true);setError('');try{await fn();await refresh();setNotice(message);return true}catch(e){setError(e instanceof Error?e.message:'Request failed');return false}finally{setBusy(false)}}
+ const section=path.startsWith('/integrations')?'Integrations':path.startsWith('/assistants')?'Assistants':'Orders';
+ return <Context.Provider value={{runs,configs,samples,loading,error,busy,notice,refresh,act}}><a className="skip-link" href="#main-content">Skip to content</a><div className="workspace"><aside className="sidebar"><Link href="/orders" className="brand"><span className="brand-symbol"><Icon name="orders" size={23}/></span><span>Order<span className="brand-second">Supervisor</span></span></Link><div className="workspace-label"><span className="workspace-avatar">D</span><span>Demo workspace<small>Order operations</small></span></div><p className="nav-caption">WORKSPACE</p><nav aria-label="Main navigation">{[['/orders','orders','Orders'],['/assistants','assistant','Assistants'],['/integrations','integrations','Integrations']].map(([href,icon,name])=><Link key={href} href={href} className={'nav-link '+(path.startsWith(href)?'active':'')} aria-current={path.startsWith(href)?'page':undefined}><Icon name={icon}/>{name}{href==='/integrations'&&<span className="nav-tag">Soon</span>}</Link>)}</nav><div className="sidebar-footer"><span className="health-dot"/>Local environment<p>Sample orders · simulated actions</p><div className="operator"><span className="operator-avatar">OP</span><div>Operator<small>Demo workspace</small></div></div></div></aside><div className="main-wrap"><header className="topbar"><div className="breadcrumb">Workspace<span>/</span><strong>{section}</strong></div><div className="topbar-meta"><span className="live-indicator"/><span>Local workspace</span></div></header><main id="main-content" className="main-content">{error&&<div role="alert" className="banner error"><Icon name="warning"/><span>{error}</span><button onClick={()=>{setError('');refresh().catch(e=>setError(e.message))}}>Retry</button></div>}{notice&&<div role="status" className="toast"><Icon name="check"/>{notice}<button aria-label="Dismiss notification" onClick={()=>setNotice('')}><Icon name="close" size={15}/></button></div>}{children}</main><footer className="page-footer">Order Supervisor <span>Local POC · external actions are simulated</span></footer></div></div></Context.Provider>;
+}
